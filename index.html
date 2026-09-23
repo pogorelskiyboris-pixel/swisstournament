@@ -3,11 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Šachový turnaj – tabulka hráčů</title>
+<title>Šachový turnaj – rozlosovací stroj</title>
 <style>
   :root{
     --bg:#f7f7f5; --card:#ffffff; --ink:#1f2430; --muted:#6b7280;
     --accent:#7c3aed; --accent-ink:#ffffff; --border:#e5e7eb; --hover:#f3f1fb;
+    --chip:#eef2ff;
   }
   *{box-sizing:border-box}
   body{
@@ -15,189 +16,963 @@
     background:var(--bg); color:var(--ink); margin:0; padding:32px 20px;
   }
   .wrap{max-width:1000px; margin:0 auto}
+  .topbar{display:flex; justify-content:space-between; align-items:flex-start; gap:16px}
   h1{font-size:22px; margin:0 0 4px}
+  h2{font-size:16px; margin:0 0 12px}
   p.sub{color:var(--muted); font-size:13px; margin:0 0 24px}
+  #langToggle{background:#eef2ff; color:var(--accent); flex-shrink:0}
   .card{background:var(--card); border:1px solid var(--border); border-radius:12px; padding:20px; margin-bottom:16px}
-  .add-row{display:flex; gap:8px; flex-wrap:wrap}
-  input[type=text]{
-    flex:1; min-width:180px; padding:10px 12px; border:1px solid var(--border);
+  .field-row{display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px; align-items:flex-end}
+  .field-row:last-child{margin-bottom:0}
+  label.small-label{display:block; font-size:12px; color:var(--muted); font-weight:600; margin-bottom:4px}
+  input[type=text], input[type=number]{
+    padding:10px 12px; border:1px solid var(--border);
     border-radius:8px; font-size:14px;
   }
+  input[type=text]{flex:1; min-width:180px}
+  input[type=number]{width:90px}
+  select{padding:8px 10px; border:1px solid var(--border); border-radius:8px; font-size:13px}
   button{
     padding:10px 16px; border:none; border-radius:8px; background:var(--accent);
-    color:var(--accent-ink); font-size:14px; font-weight:600; cursor:pointer;
+    color:var(--accent-ink); font-size:14px; font-weight:600; cursor:pointer; white-space:nowrap;
   }
   button.secondary{background:#eef2ff; color:var(--accent)}
   button.small{padding:4px 8px; font-size:12px; background:#fee2e2; color:#b91c1c}
-  #status{font-size:13px; color:var(--muted); min-height:18px; margin-top:8px}
+  button.ghost{background:transparent; border:1px solid var(--border); color:var(--ink); padding:4px 8px; font-size:12px; font-weight:400}
+  button:disabled{opacity:.5; cursor:not-allowed}
+  hr.sep{border:none; border-top:1px solid var(--border); margin:16px 0}
+  #status, #searchStatus, #tourStatus{font-size:13px; color:var(--muted); min-height:18px; margin-top:4px}
+  #searchResults{margin-top:10px; border:1px solid var(--border); border-radius:8px; overflow:hidden; display:none}
+  .result-item{display:flex; justify-content:space-between; align-items:center; padding:8px 12px; font-size:13px; border-bottom:1px solid var(--border)}
+  .result-item:last-child{border-bottom:none}
+  .result-item:hover{background:var(--hover)}
+  .result-meta{color:var(--muted)}
   table{width:100%; border-collapse:collapse; font-size:13px}
   th,td{padding:9px 10px; text-align:left; border-bottom:1px solid var(--border); white-space:nowrap}
   th{color:var(--muted); font-weight:600; user-select:none}
+  th.sortable{cursor:pointer}
   th.sortable:hover{color:var(--accent)}
   tbody tr:hover{background:var(--hover)}
   .empty{color:var(--muted); font-size:13px; padding:20px 0; text-align:center}
-  .toolbar{display:flex; justify-content:space-between; align-items:center; margin-bottom:10px}
+  .toolbar{display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; flex-wrap:wrap; gap:8px}
   .count{color:var(--muted); font-size:13px}
   footer{color:var(--muted); font-size:12px; margin-top:12px}
+  .tb-list{display:flex; flex-wrap:wrap; gap:16px; margin-bottom:10px}
+  .tb-item{display:flex; align-items:center; gap:6px; font-size:13px}
+  .chips{display:flex; flex-wrap:wrap; gap:6px; margin-top:8px}
+  .chip{background:var(--chip); color:var(--accent); border-radius:16px; padding:4px 6px 4px 10px; font-size:12px; display:flex; align-items:center; gap:4px}
+  .chip button{background:none; border:none; color:var(--accent); padding:0 4px; font-size:12px; cursor:pointer}
+  .hidden{display:none !important}
+  .badge{display:inline-block; background:var(--chip); color:var(--accent); border-radius:6px; padding:2px 8px; font-size:12px; font-weight:600}
 </style>
 </head>
 <body>
 <div class="wrap">
-  <h1>♟️ Šachový turnaj – tabulka hráčů</h1>
-  <p class="sub">Zadej FIDE ID hráče, data (jméno, rok narození, ELO std/rapid/blitz) se doplní automaticky z fideratings.com.</p>
-
-  <div class="card">
-    <div class="add-row">
-      <input type="text" id="fideIdInput" placeholder="FIDE ID (např. 1503014)">
-      <button onclick="addPlayer()">Přidat hráče</button>
-      <button class="secondary" onclick="exportCSV()">Export CSV</button>
+  <div class="topbar">
+    <div>
+      <h1 data-i18n="title">♟️ Šachový turnaj – rozlosovací stroj</h1>
+      <p class="sub" data-i18n="subtitle">Přidej hráče, nastav turnaj a nechej losovat kola švýcarským systémem.</p>
     </div>
-    <div id="status"></div>
+    <button id="langToggle" onclick="toggleLang()">EN</button>
   </div>
 
-  <div class="card">
+  <!-- ROSTER -->
+  <div class="card" id="rosterCard">
+    <div class="field-row">
+      <div style="flex:1; min-width:220px">
+        <label class="small-label" data-i18n="tournamentLabel">Název turnaje</label>
+        <input type="text" id="tournamentName" data-i18n-placeholder="tournamentPlaceholder" placeholder="např. Přebor klubu 2026">
+      </div>
+    </div>
+    <hr class="sep">
+    <label class="small-label" data-i18n="addByIdLegend">Přidat podle FIDE ID</label>
+    <div class="field-row">
+      <input type="text" id="fideIdInput" data-i18n-placeholder="idPlaceholder" placeholder="FIDE ID (např. 1503014)">
+      <button onclick="addPlayerById()" data-i18n="addBtn">Přidat hráče</button>
+    </div>
+    <div id="status"></div>
+    <hr class="sep">
+    <label class="small-label" data-i18n="addByNameLegend">Přidat podle jména</label>
+    <div class="field-row">
+      <input type="text" id="nameInput" data-i18n-placeholder="namePlaceholder" placeholder="Jméno hráče (např. Carlsen)">
+      <button class="secondary" onclick="searchByName()" data-i18n="searchBtn">Hledat</button>
+    </div>
+    <div id="searchStatus"></div>
+    <div id="searchResults"></div>
+    <hr class="sep">
+    <button class="secondary" onclick="exportCSV()" data-i18n="exportBtn">Export CSV</button>
+    <button class="ghost" onclick="clearEverything()" data-i18n="clearAllBtn">Vymazat vše (hráče i turnaj)</button>
+  </div>
+
+  <div class="card" id="tableCard">
     <div class="toolbar">
-      <span class="count" id="countLabel">0 hráčů</span>
-      <span class="count">Klikni na záhlaví sloupce pro seřazení</span>
+      <span class="count" id="countLabel">0</span>
+      <span class="count" data-i18n="sortHint">Klikni na záhlaví sloupce pro seřazení</span>
     </div>
     <table>
       <thead>
         <tr>
-          <th>FIDE ID</th>
-          <th>Jméno</th>
-          <th class="sortable" data-sort="birth_year">Rok narození ⬍</th>
-          <th class="sortable" data-sort="standard_elo">ELO std ⬍</th>
-          <th class="sortable" data-sort="rapid_elo">ELO rapid ⬍</th>
-          <th class="sortable" data-sort="blitz_elo">ELO blitz ⬍</th>
-          <th>Titul</th>
-          <th>Federace</th>
+          <th data-i18n="colId">FIDE ID</th>
+          <th data-i18n="colName">Jméno</th>
+          <th class="sortable" data-sort="birth_year" data-i18n="colBirth">Rok narození ⬍</th>
+          <th class="sortable" data-sort="standard_elo" data-i18n="colStd">ELO std ⬍</th>
+          <th class="sortable" data-sort="rapid_elo" data-i18n="colRapid">ELO rapid ⬍</th>
+          <th class="sortable" data-sort="blitz_elo" data-i18n="colBlitz">ELO blitz ⬍</th>
+          <th data-i18n="colTitle">Titul</th>
+          <th data-i18n="colFed">Federace</th>
           <th></th>
         </tr>
       </thead>
       <tbody id="playersBody"></tbody>
     </table>
-    <div class="empty" id="emptyMsg">Zatím žádní hráči — zadej FIDE ID výše.</div>
+    <div class="empty" id="emptyMsg" data-i18n="emptyMsg">Zatím žádní hráči — zadej FIDE ID nebo jméno výše.</div>
   </div>
 
-  <footer>Data: fideratings.com (neoficiální, komunitní zrcadlo FIDE ratingových listin, aktualizace měsíčně). Není přidruženo k FIDE.</footer>
+  <!-- TOURNAMENT SETUP -->
+  <div class="card" id="setupCard">
+    <h2 data-i18n="setupTitle">Nastavení turnaje</h2>
+    <div class="field-row">
+      <div>
+        <label class="small-label" data-i18n="numRoundsLabel">Počet kol</label>
+        <input type="number" id="numRounds" min="1" value="7">
+      </div>
+      <div style="flex:1; min-width:200px">
+        <label class="small-label" data-i18n="timeControlLabel">Časová kontrola</label>
+        <input type="text" id="timeControl" data-i18n-placeholder="timeControlPlaceholder" placeholder="např. 90 min + 30 s/tah">
+      </div>
+    </div>
+    <label class="small-label" data-i18n="tiebreakLabel">Pomocné hodnocení (klikáním nastav pořadí priority)</label>
+    <div class="tb-list" id="tbCheckboxes"></div>
+    <div class="chips" id="tbOrderChips"></div>
+    <hr class="sep">
+    <button onclick="startTournament()" data-i18n="startBtn">Zahájit turnaj a nalosovat 1. kolo</button>
+    <div id="tourStatus"></div>
+  </div>
+
+  <!-- ROUND -->
+  <div class="card hidden" id="roundCard">
+    <div class="toolbar">
+      <h2 id="roundTitle" style="margin:0"></h2>
+      <div class="field-row" style="margin:0">
+        <button class="ghost" onclick="endTournamentNow()" data-i18n="endTournamentBtn">Ukončit turnaj</button>
+        <button class="ghost" onclick="confirmResetTournament()" data-i18n="resetBtn">Nový turnaj</button>
+      </div>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th data-i18n="colBoard">Stůl</th>
+          <th data-i18n="colWhite">Bílý</th>
+          <th data-i18n="colBlack">Černý</th>
+          <th data-i18n="colResult">Výsledek</th>
+        </tr>
+      </thead>
+      <tbody id="roundBody"></tbody>
+    </table>
+    <hr class="sep">
+    <button onclick="confirmRound()" id="confirmBtn" data-i18n="confirmBtn">Potvrdit kolo a nalosovat další</button>
+    <div id="roundStatus"></div>
+  </div>
+
+  <!-- HISTORY -->
+  <div class="card hidden" id="historyCard">
+    <h2 data-i18n="historyTitle">Historie kol</h2>
+    <p class="sub" data-i18n="historyHint">Klikni na kolo pro zobrazení nebo opravu výsledků. Oprava přepočítá pořadí a přelosuje všechna následující kola.</p>
+    <div class="chips" id="historyRoundList"></div>
+    <div id="historyEditArea"></div>
+  </div>
+
+  <!-- STANDINGS -->
+  <div class="card hidden" id="standingsCard">
+    <div class="toolbar">
+      <h2 id="standingsTitle" style="margin:0" data-i18n="standingsTitle">Průběžné pořadí</h2>
+      <div class="field-row" style="margin:0; align-items:center">
+        <label class="small-label" style="margin:0" data-i18n="standingsAfterRoundLabel">Pořadí po kole:</label>
+        <select id="standingsRoundSelect" onchange="renderStandings()"></select>
+      </div>
+    </div>
+    <table>
+      <thead><tr id="standingsHead"></tr></thead>
+      <tbody id="standingsBody"></tbody>
+    </table>
+  </div>
+
+  <footer data-i18n="footer">Data: fideratings.com (neoficiální, komunitní zrcadlo FIDE ratingových listin, aktualizace měsíčně). Není přidruženo k FIDE. Losování je zjednodušený švýcarský systém, ne certifikovaný FIDE Dutch algoritmus.</footer>
 </div>
 
 <script>
+/* ---------- i18n ---------- */
+const translations = {
+  cs: {
+    title: "♟️ Šachový turnaj – rozlosovací stroj",
+    subtitle: "Přidej hráče, nastav turnaj a nechej losovat kola švýcarským systémem.",
+    tournamentLabel: "Název turnaje",
+    tournamentPlaceholder: "např. Přebor klubu 2026",
+    addByIdLegend: "Přidat podle FIDE ID",
+    idPlaceholder: "FIDE ID (např. 1503014)",
+    addBtn: "Přidat hráče",
+    addByNameLegend: "Přidat podle jména",
+    namePlaceholder: "Jméno hráče (např. Carlsen)",
+    searchBtn: "Hledat",
+    exportBtn: "Export CSV",
+    sortHint: "Klikni na záhlaví sloupce pro seřazení",
+    colId: "FIDE ID", colName: "Jméno", colBirth: "Rok narození ⬍",
+    colStd: "ELO std ⬍", colRapid: "ELO rapid ⬍", colBlitz: "ELO blitz ⬍",
+    colTitle: "Titul", colFed: "Federace",
+    emptyMsg: "Zatím žádní hráči — zadej FIDE ID nebo jméno výše.",
+    footer: "Data: fideratings.com (neoficiální, komunitní zrcadlo FIDE ratingových listin, aktualizace měsíčně). Není přidruženo k FIDE. Losování je zjednodušený švýcarský systém, ne certifikovaný FIDE Dutch algoritmus.",
+    countPlayers: n => `${n} hráčů`,
+    loadingPlayer: id => `Načítám hráče ${id}…`,
+    alreadyAdded: id => `Hráč s FIDE ID ${id} už v tabulce je.`,
+    notFound: id => `Hráč s FIDE ID ${id} nebyl nalezen.`,
+    errorLoading: (id,msg) => `Chyba při načítání hráče ${id}: ${msg}`,
+    searching: name => `Hledám „${name}“…`,
+    noResults: name => `Žádný hráč se jménem „${name}“ nenalezen.`,
+    searchError: msg => `Chyba při hledání: ${msg}`,
+    resultsHeader: n => `Nalezeno ${n} — vyber hráče:`,
+    addResultBtn: "Přidat",
+    unknown: "neznámý",
+    setupTitle: "Nastavení turnaje",
+    numRoundsLabel: "Počet kol",
+    timeControlLabel: "Časová kontrola",
+    timeControlPlaceholder: "např. 90 min + 30 s/tah",
+    tiebreakLabel: "Pomocné hodnocení (klikáním nastav pořadí priority)",
+    startBtn: "Zahájit turnaj a nalosovat 1. kolo",
+    needTwoPlayers: "Pro zahájení turnaje potřebuješ alespoň 2 hráče.",
+    resetBtn: "Nový turnaj",
+    colBoard: "Stůl", colWhite: "Bílý", colBlack: "Černý", colResult: "Výsledek",
+    byeLabel: "volno (1 bod)",
+    roundTitleFn: (r,n) => `Kolo ${r} / ${n}`,
+    confirmBtn: "Potvrdit kolo a nalosovat další",
+    finishBtn: "Potvrdit poslední kolo a zobrazit konečné pořadí",
+    fillAllResults: "Vyplň prosím výsledky všech partií.",
+    standingsTitle: "Průběžné pořadí",
+    finalStandingsTitle: "Konečné pořadí",
+    colRank: "#", colPoints: "Body",
+    tbNames: {headtohead:"Vz. zápas", buchholz:"Buchholz", buchholzCut1:"Buchholz cut 1", sb:"Sonneborn-Berger", wins:"Výhry"},
+    historyTitle: "Historie kol",
+    historyHint: "Klikni na kolo pro zobrazení nebo opravu výsledků. Oprava přepočítá pořadí a přelosuje všechna následující kola.",
+    roundChip: n => `Kolo ${n}`,
+    saveCorrection: "Uložit opravu a přelosovat další kola",
+    cancelEdit: "Zavřít",
+    correctionWarning: "Pozor: uložení opravy zruší losování všech kol po tomto kole a nalosuje je znovu.",
+    byeLabelShort: "volno",
+    endTournamentBtn: "Ukončit turnaj",
+    endTournamentConfirm: "Opravdu chceš turnaj ukončit? Zobrazí se konečné pořadí podle odehraných kol; rozehrané, nepotvrzené kolo se ztratí.",
+    resetConfirm: "Opravdu chceš začít nový turnaj? Losování a výsledky se smažou, hráči v tabulce zůstanou.",
+    clearAllBtn: "Vymazat vše (hráče i turnaj)",
+    clearAllConfirm: "Opravdu chceš smazat úplně všechno – hráče, turnaj i historii? Tuto akci nelze vrátit zpět.",
+    standingsAfterRoundLabel: "Pořadí po kole:",
+    currentOption: "aktuální",
+    standingsAfterRoundTitle: n => `Pořadí po kole ${n}`
+  },
+  en: {
+    title: "♟️ Chess Tournament – Pairing Engine",
+    subtitle: "Add players, configure the tournament, and let it pair rounds using the Swiss system.",
+    tournamentLabel: "Tournament name",
+    tournamentPlaceholder: "e.g. Club Championship 2026",
+    addByIdLegend: "Add by FIDE ID",
+    idPlaceholder: "FIDE ID (e.g. 1503014)",
+    addBtn: "Add player",
+    addByNameLegend: "Add by name",
+    namePlaceholder: "Player name (e.g. Carlsen)",
+    searchBtn: "Search",
+    exportBtn: "Export CSV",
+    sortHint: "Click a column header to sort",
+    colId: "FIDE ID", colName: "Name", colBirth: "Birth year ⬍",
+    colStd: "Std ELO ⬍", colRapid: "Rapid ELO ⬍", colBlitz: "Blitz ELO ⬍",
+    colTitle: "Title", colFed: "Federation",
+    emptyMsg: "No players yet — enter a FIDE ID or name above.",
+    footer: "Data: fideratings.com (unofficial, community mirror of FIDE rating lists, updated monthly). Not affiliated with FIDE. Pairing is a simplified Swiss system, not a certified FIDE Dutch algorithm.",
+    countPlayers: n => `${n} players`,
+    loadingPlayer: id => `Loading player ${id}…`,
+    alreadyAdded: id => `Player with FIDE ID ${id} is already in the table.`,
+    notFound: id => `Player with FIDE ID ${id} was not found.`,
+    errorLoading: (id,msg) => `Error loading player ${id}: ${msg}`,
+    searching: name => `Searching for "${name}"…`,
+    noResults: name => `No player found for "${name}".`,
+    searchError: msg => `Search error: ${msg}`,
+    resultsHeader: n => `Found ${n} — pick a player:`,
+    addResultBtn: "Add",
+    unknown: "unknown",
+    setupTitle: "Tournament setup",
+    numRoundsLabel: "Number of rounds",
+    timeControlLabel: "Time control",
+    timeControlPlaceholder: "e.g. 90 min + 30 s/move",
+    tiebreakLabel: "Tiebreak criteria (click to set priority order)",
+    startBtn: "Start tournament and pair round 1",
+    needTwoPlayers: "You need at least 2 players to start the tournament.",
+    resetBtn: "New tournament",
+    colBoard: "Board", colWhite: "White", colBlack: "Black", colResult: "Result",
+    byeLabel: "bye (1 point)",
+    roundTitleFn: (r,n) => `Round ${r} / ${n}`,
+    confirmBtn: "Confirm round & pair next",
+    finishBtn: "Confirm last round & show final standings",
+    fillAllResults: "Please fill in the results for all games.",
+    standingsTitle: "Standings",
+    finalStandingsTitle: "Final standings",
+    colRank: "#", colPoints: "Points",
+    tbNames: {headtohead:"H2H", buchholz:"Buchholz", buchholzCut1:"Buchholz cut 1", sb:"Sonneborn-Berger", wins:"Wins"},
+    historyTitle: "Round history",
+    historyHint: "Click a round to view or correct results. Saving a correction recalculates standings and re-pairs every round after it.",
+    roundChip: n => `Round ${n}`,
+    saveCorrection: "Save correction & re-pair later rounds",
+    cancelEdit: "Close",
+    correctionWarning: "Note: saving this correction discards pairings for every round after this one and re-pairs them.",
+    byeLabelShort: "bye",
+    endTournamentBtn: "End tournament",
+    endTournamentConfirm: "End the tournament now? Final standings will be based on completed rounds; an unconfirmed in-progress round will be lost.",
+    resetConfirm: "Start a new tournament? Pairings and results will be cleared; players in the table stay.",
+    clearAllBtn: "Clear everything (players & tournament)",
+    clearAllConfirm: "Really clear absolutely everything — players, tournament and history? This cannot be undone.",
+    standingsAfterRoundLabel: "Standings after round:",
+    currentOption: "current",
+    standingsAfterRoundTitle: n => `Standings after round ${n}`
+  }
+};
+let lang = 'cs';
+function t(key, ...args){
+  const v = translations[lang][key];
+  return typeof v === 'function' ? v(...args) : v;
+}
+function toggleLang(){
+  lang = lang === 'cs' ? 'en' : 'cs';
+  document.getElementById('langToggle').textContent = lang === 'cs' ? 'EN' : 'CS';
+  document.documentElement.lang = lang;
+  applyStaticText();
+  renderTbCheckboxes();
+  renderTbChips();
+  render();
+  if(tournament.started) renderRound();
+  if(tournament.started) populateStandingsRoundSelect();
+  if(tournament.started) renderStandings();
+  if(tournament.started) renderHistoryList();
+  saveState();
+}
+function applyStaticText(){
+  document.querySelectorAll('[data-i18n]').forEach(el=>{ el.textContent = t(el.dataset.i18n); });
+  document.querySelectorAll('[data-i18n-placeholder]').forEach(el=>{ el.placeholder = t(el.dataset.i18nPlaceholder); });
+}
+
+/* ---------- Player roster ---------- */
 let players = [];
 let sortKey = null, sortDir = 1;
-
-function parseNum(v){
-  const n = parseInt(v, 10);
-  return isNaN(n) ? null : n;
+function parseNum(v){ const n = parseInt(v, 10); return isNaN(n) ? null : n; }
+async function fetchPlayerInfo(id){
+  const res = await fetch(`https://fideratings.com/api/player/${encodeURIComponent(id)}/info?mode=full`);
+  if(!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
 }
-
-async function addPlayer(){
+function playerToRow(id, data){
+  return {
+    fideid: String(id), name: data.name,
+    birth_year: parseNum(data.birth_year),
+    standard_elo: parseNum(data.standard_elo),
+    rapid_elo: parseNum(data.rapid_elo),
+    blitz_elo: parseNum(data.blitz_elo),
+    title: (data.title && data.title !== 'N/A') ? data.title : '',
+    federation: (data.federation && data.federation !== 'N/A') ? data.federation : ''
+  };
+}
+async function addPlayerById(idOverride){
   const input = document.getElementById('fideIdInput');
-  const id = input.value.trim();
+  const id = idOverride || input.value.trim();
   const statusEl = document.getElementById('status');
-  if(!id){ return; }
-  if(players.some(p => p.fideid === id)){
-    statusEl.textContent = `Hráč s FIDE ID ${id} už v tabulce je.`;
-    return;
-  }
-  input.value = '';
-  statusEl.textContent = `Načítám hráče ${id}…`;
+  if(!id) return;
+  if(players.some(p => p.fideid === String(id))){ statusEl.textContent = t('alreadyAdded', id); return; }
+  if(!idOverride) input.value = '';
+  statusEl.textContent = t('loadingPlayer', id);
   try{
-    const res = await fetch(`https://fideratings.com/api/player/${encodeURIComponent(id)}/info?mode=full`);
-    if(!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
-    if(!data || !data.name || data.name === 'N/A'){
-      statusEl.textContent = `Hráč s FIDE ID ${id} nebyl nalezen.`;
-      return;
-    }
-    players.push({
-      fideid: id,
-      name: data.name,
-      birth_year: parseNum(data.birth_year),
-      standard_elo: parseNum(data.standard_elo),
-      rapid_elo: parseNum(data.rapid_elo),
-      blitz_elo: parseNum(data.blitz_elo),
-      title: (data.title && data.title !== 'N/A') ? data.title : '',
-      federation: (data.federation && data.federation !== 'N/A') ? data.federation : ''
-    });
+    const data = await fetchPlayerInfo(id);
+    if(!data || !data.name || data.name === 'N/A'){ statusEl.textContent = t('notFound', id); return; }
+    players.push(playerToRow(id, data));
     statusEl.textContent = '';
     render();
-  }catch(err){
-    statusEl.textContent = `Chyba při načítání hráče ${id}: ${err.message}`;
-  }
+    saveState();
+  }catch(err){ statusEl.textContent = t('errorLoading', id, err.message); }
 }
-
-function removePlayer(id){
-  players = players.filter(p => p.fideid !== id);
-  render();
+async function searchByName(){
+  const input = document.getElementById('nameInput');
+  const name = input.value.trim();
+  const statusEl = document.getElementById('searchStatus');
+  const resultsEl = document.getElementById('searchResults');
+  resultsEl.style.display = 'none'; resultsEl.innerHTML = '';
+  if(!name) return;
+  statusEl.textContent = t('searching', name);
+  try{
+    const res = await fetch(`https://fideratings.com/api/search?q=${encodeURIComponent(name)}&type=standard`);
+    if(!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    const list = Array.isArray(data) ? data : (data.results || data.players || data.data || []);
+    if(!list.length){ statusEl.textContent = t('noResults', name); return; }
+    statusEl.textContent = t('resultsHeader', list.length);
+    resultsEl.style.display = 'block';
+    resultsEl.innerHTML = list.slice(0, 20).map(item => {
+      const id = item.fideid || item.fide_id || item.id || '';
+      const nm = item.name || t('unknown');
+      const fed = item.federation || item.fed || '';
+      const rating = item.rating || item.standard_elo || item.std || '';
+      return `<div class="result-item">
+        <span><strong>${escapeHtml(nm)}</strong> — ${escapeHtml(String(id))}
+          <span class="result-meta">${escapeHtml(fed)}${rating ? ' · ELO ' + escapeHtml(String(rating)) : ''}</span>
+        </span>
+        <button onclick="addPlayerById('${escapeHtml(String(id))}')">${t('addResultBtn')}</button>
+      </div>`;
+    }).join('');
+  }catch(err){ statusEl.textContent = t('searchError', err.message); }
 }
-
-function sortBy(key){
-  if(sortKey === key) sortDir *= -1; else { sortKey = key; sortDir = 1; }
-  render();
-}
-
+function removePlayer(id){ players = players.filter(p => p.fideid !== id); render(); saveState(); }
+function sortByCol(key){ if(sortKey === key) sortDir *= -1; else { sortKey = key; sortDir = 1; } render(); }
 function render(){
   const body = document.getElementById('playersBody');
   const emptyMsg = document.getElementById('emptyMsg');
-  document.getElementById('countLabel').textContent = `${players.length} hráčů`;
-
+  document.getElementById('countLabel').textContent = t('countPlayers', players.length);
   let list = [...players];
   if(sortKey){
     list.sort((a,b)=>{
       const av=a[sortKey], bv=b[sortKey];
       if(av===null && bv===null) return 0;
-      if(av===null) return 1;
-      if(bv===null) return -1;
+      if(av===null) return 1; if(bv===null) return -1;
       return (av-bv)*sortDir;
     });
   }
-
-  if(list.length === 0){
-    body.innerHTML = '';
-    emptyMsg.style.display = 'block';
-    return;
-  }
+  if(list.length === 0){ body.innerHTML=''; emptyMsg.style.display='block'; return; }
   emptyMsg.style.display = 'none';
-
   body.innerHTML = list.map(p => `
     <tr>
-      <td>${p.fideid}</td>
-      <td>${escapeHtml(p.name)}</td>
-      <td>${p.birth_year ?? '—'}</td>
-      <td>${p.standard_elo ?? '—'}</td>
-      <td>${p.rapid_elo ?? '—'}</td>
-      <td>${p.blitz_elo ?? '—'}</td>
-      <td>${escapeHtml(p.title)}</td>
-      <td>${escapeHtml(p.federation)}</td>
-      <td><button class="small" onclick="removePlayer('${p.fideid}')">✕</button></td>
-    </tr>
-  `).join('');
+      <td>${p.fideid}</td><td>${escapeHtml(p.name)}</td>
+      <td>${p.birth_year ?? '—'}</td><td>${p.standard_elo ?? '—'}</td>
+      <td>${p.rapid_elo ?? '—'}</td><td>${p.blitz_elo ?? '—'}</td>
+      <td>${escapeHtml(p.title)}</td><td>${escapeHtml(p.federation)}</td>
+      <td>${tournament.started ? '' : `<button class="small" onclick="removePlayer('${p.fideid}')">✕</button>`}</td>
+    </tr>`).join('');
 }
-
 function escapeHtml(s){
   return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
-
+function slugify(s){
+  return s.trim().toLowerCase().replace(/[^a-z0-9]+/gi, '-').replace(/^-+|-+$/g, '') || (lang === 'cs' ? 'sachovy-turnaj' : 'chess-tournament');
+}
 function exportCSV(){
   if(players.length === 0) return;
-  const header = ['FIDE ID','Jméno','Rok narození','ELO std','ELO rapid','ELO blitz','Titul','Federace'];
+  const tName = document.getElementById('tournamentName').value.trim();
+  const header = [t('colId'), t('colName'), t('colBirth').replace(' ⬍',''), t('colStd').replace(' ⬍',''), t('colRapid').replace(' ⬍',''), t('colBlitz').replace(' ⬍',''), t('colTitle'), t('colFed')];
   const rows = players.map(p => [p.fideid,p.name,p.birth_year,p.standard_elo,p.rapid_elo,p.blitz_elo,p.title,p.federation]);
-  const csv = [header, ...rows].map(r => r.map(v => `"${String(v ?? '').replace(/"/g,'""')}"`).join(';')).join('\n');
+  let csv = '';
+  if(tName) csv += `"${tName.replace(/"/g,'""')}"\n\n`;
+  csv += [header, ...rows].map(r => r.map(v => `"${String(v ?? '').replace(/"/g,'""')}"`).join(';')).join('\n');
   const blob = new Blob(['\uFEFF' + csv], {type:'text/csv;charset=utf-8;'});
   const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url; a.download = 'sachovy-turnaj.csv';
-  a.click();
+  const a = document.createElement('a'); a.href = url; a.download = `${slugify(tName)}.csv`; a.click();
   URL.revokeObjectURL(url);
 }
+document.getElementById('fideIdInput').addEventListener('keydown', e => { if(e.key === 'Enter') addPlayerById(); });
+document.getElementById('nameInput').addEventListener('keydown', e => { if(e.key === 'Enter') searchByName(); });
+document.getElementById('tournamentName').addEventListener('input', () => saveState());
+document.getElementById('numRounds').addEventListener('input', () => saveState());
+document.getElementById('timeControl').addEventListener('input', () => saveState());
 
-document.querySelectorAll('th.sortable').forEach(th=>{
-  th.addEventListener('click', () => sortBy(th.dataset.sort));
-});
-document.getElementById('fideIdInput').addEventListener('keydown', e => {
-  if(e.key === 'Enter') addPlayer();
-});
+/* ---------- Tiebreak selection UI ---------- */
+const TB_KEYS = ['headtohead','buchholzCut1','buchholz','sb','wins'];
+let tbOrder = ['headtohead','buchholzCut1','buchholz','sb','wins']; // default: all selected, this order
+function renderTbCheckboxes(){
+  const el = document.getElementById('tbCheckboxes');
+  el.innerHTML = TB_KEYS.map(key => `
+    <label class="tb-item">
+      <input type="checkbox" ${tbOrder.includes(key) ? 'checked' : ''} onchange="toggleTb('${key}')">
+      ${t('tbNames')[key]}
+    </label>`).join('');
+}
+function toggleTb(key){
+  if(tbOrder.includes(key)) tbOrder = tbOrder.filter(k => k !== key);
+  else tbOrder.push(key);
+  renderTbChips();
+  if(tournament.started) renderStandings();
+  saveState();
+}
+function moveTb(key, dir){
+  const i = tbOrder.indexOf(key);
+  const j = i + dir;
+  if(j < 0 || j >= tbOrder.length) return;
+  [tbOrder[i], tbOrder[j]] = [tbOrder[j], tbOrder[i]];
+  renderTbChips();
+  if(tournament.started) renderStandings();
+  saveState();
+}
+function renderTbChips(){
+  const el = document.getElementById('tbOrderChips');
+  el.innerHTML = tbOrder.map((key, idx) => `
+    <span class="chip">${idx+1}. ${t('tbNames')[key]}
+      <button onclick="moveTb('${key}',-1)" title="↑">↑</button>
+      <button onclick="moveTb('${key}',1)" title="↓">↓</button>
+    </span>`).join('');
+}
+
+/* ---------- Tournament engine ---------- */
+let tournament = { started:false, finished:false, numRounds:0, timeControl:'', round:0, pairings:[], roundsHistory:[] };
+let historyOpenRound = null;
+let historyEditPairings = null;
+
+function ratingVal(p){ return p.standard_elo ?? p.rapid_elo ?? p.blitz_elo ?? 0; }
+function getPlayer(id){ return players.find(p => p.fideid === id); }
+
+function startTournament(){
+  const statusEl = document.getElementById('tourStatus');
+  if(players.length < 2){ statusEl.textContent = t('needTwoPlayers'); return; }
+  tournament.numRounds = Math.max(1, parseInt(document.getElementById('numRounds').value,10) || 1);
+  tournament.timeControl = document.getElementById('timeControl').value.trim();
+  tournament.started = true; tournament.finished = false; tournament.round = 1;
+  players.forEach(p => { p.score = 0; p.opponents = []; p.colorHistory = []; p.byeUsed = false; p.results = []; });
+  document.getElementById('setupCard').classList.add('hidden');
+  document.getElementById('roundCard').classList.remove('hidden');
+  document.getElementById('standingsCard').classList.remove('hidden');
+  document.getElementById('historyCard').classList.remove('hidden');
+  generatePairings();
+  renderRound();
+  renderHistoryList();
+  populateStandingsRoundSelect();
+  renderStandings();
+  render();
+  statusEl.textContent = '';
+  saveState();
+}
+
+function confirmResetTournament(){
+  if(!window.confirm(t('resetConfirm'))) return;
+  resetTournament();
+}
+
+function resetTournament(){
+  tournament = { started:false, finished:false, numRounds:0, timeControl:'', round:0, pairings:[], roundsHistory:[] };
+  historyOpenRound = null; historyEditPairings = null;
+  players.forEach(p => { delete p.score; delete p.opponents; delete p.colorHistory; delete p.byeUsed; delete p.results; });
+  document.getElementById('setupCard').classList.remove('hidden');
+  document.getElementById('roundCard').classList.add('hidden');
+  document.getElementById('standingsCard').classList.add('hidden');
+  document.getElementById('historyCard').classList.add('hidden');
+  render();
+  saveState();
+}
+
+function endTournamentNow(){
+  if(!window.confirm(t('endTournamentConfirm'))) return;
+  tournament.finished = true;
+  document.getElementById('roundCard').classList.add('hidden');
+  populateStandingsRoundSelect();
+  renderStandings();
+  saveState();
+}
+
+function clearEverything(){
+  if(!window.confirm(t('clearAllConfirm'))) return;
+  players = [];
+  tournament = { started:false, finished:false, numRounds:0, timeControl:'', round:0, pairings:[], roundsHistory:[] };
+  historyOpenRound = null; historyEditPairings = null;
+  document.getElementById('tournamentName').value = '';
+  document.getElementById('setupCard').classList.remove('hidden');
+  document.getElementById('roundCard').classList.add('hidden');
+  document.getElementById('standingsCard').classList.add('hidden');
+  document.getElementById('historyCard').classList.add('hidden');
+  render();
+  try{ localStorage.removeItem(STORAGE_KEY); }catch(e){}
+}
+
+function assignColors(p1, p2){
+  const diff = p => p.colorHistory.filter(c=>c==='W').length - p.colorHistory.filter(c=>c==='B').length;
+  const d1 = diff(p1), d2 = diff(p2);
+  let white, black;
+  if(d1 < d2){ white=p1; black=p2; }
+  else if(d2 < d1){ white=p2; black=p1; }
+  else {
+    const last1 = p1.colorHistory[p1.colorHistory.length-1];
+    if(last1 === 'W'){ white=p2; black=p1; } else { white=p1; black=p2; }
+  }
+  return { white, black };
+}
+
+function generatePairings(){
+  const ranked = [...players].sort((a,b) => (b.score - a.score) || (ratingVal(b) - ratingVal(a)));
+  let byePlayer = null;
+  let pool = ranked;
+  if(pool.length % 2 === 1){
+    for(let i = pool.length - 1; i >= 0; i--){
+      if(!pool[i].byeUsed){ byePlayer = pool[i]; pool = pool.slice(0,i).concat(pool.slice(i+1)); break; }
+    }
+    if(!byePlayer){ byePlayer = pool[pool.length-1]; pool = pool.slice(0,-1); }
+  }
+  // group by score
+  const groups = [];
+  pool.forEach(p => {
+    const g = groups.find(g => g.score === p.score);
+    if(g) g.players.push(p); else groups.push({score:p.score, players:[p]});
+  });
+  let floaters = [];
+  let pairs = [];
+  groups.forEach(group => {
+    let gp = floaters.concat(group.players).sort((a,b)=> ratingVal(b)-ratingVal(a));
+    floaters = [];
+    const half = Math.floor(gp.length/2);
+    const top = gp.slice(0, half), bottom = gp.slice(half);
+    const usedBottom = new Set();
+    const unpairedTop = [];
+    top.forEach((p1, k) => {
+      const candidates = [];
+      if(k < bottom.length) candidates.push(k);
+      for(let d=1; d<bottom.length; d++){
+        if(k-d>=0) candidates.push(k-d);
+        if(k+d<bottom.length) candidates.push(k+d);
+      }
+      let chosen = -1;
+      for(const ci of candidates){
+        if(usedBottom.has(ci)) continue;
+        if(!p1.opponents.includes(bottom[ci].fideid)){ chosen = ci; break; }
+      }
+      if(chosen === -1){ unpairedTop.push(p1); return; }
+      usedBottom.add(chosen);
+      pairs.push(assignColors(p1, bottom[chosen]));
+    });
+    const remainingBottom = bottom.filter((_,idx)=>!usedBottom.has(idx));
+    floaters = unpairedTop.concat(remainingBottom);
+  });
+  while(floaters.length > 1){
+    const p1 = floaters.shift(), p2 = floaters.shift();
+    pairs.push(assignColors(p1, p2));
+  }
+  if(floaters.length === 1){
+    if(byePlayer){ pairs.push(assignColors(floaters[0], byePlayer)); byePlayer = null; }
+    else byePlayer = floaters[0];
+  }
+  pairs.sort((a,b) => (b.white.score + b.black.score) - (a.white.score + a.black.score));
+  tournament.pairings = pairs.map((pr, idx) => ({ board: idx+1, whiteId: pr.white.fideid, blackId: pr.black.fideid, result: null }));
+  if(byePlayer){
+    tournament.pairings.push({ board: tournament.pairings.length+1, whiteId: byePlayer.fideid, blackId: null, result: 'bye' });
+  }
+}
+
+function updatePairingResult(idx, val){ tournament.pairings[idx].result = val; saveState(); }
+
+function renderRound(){
+  document.getElementById('roundTitle').textContent = t('roundTitleFn', tournament.round, tournament.numRounds) + (tournament.timeControl ? ` · ${tournament.timeControl}` : '');
+  const body = document.getElementById('roundBody');
+  body.innerHTML = tournament.pairings.map((pr, idx) => {
+    const w = getPlayer(pr.whiteId);
+    if(pr.result === 'bye'){
+      return `<tr><td>${pr.board}</td><td>${escapeHtml(w.name)} <span class="badge">${t('byeLabel')}</span></td><td>—</td><td>—</td></tr>`;
+    }
+    const b = getPlayer(pr.blackId);
+    return `<tr>
+      <td>${pr.board}</td>
+      <td>${escapeHtml(w.name)} <span class="result-meta">(${ratingVal(w) || '—'})</span></td>
+      <td>${escapeHtml(b.name)} <span class="result-meta">(${ratingVal(b) || '—'})</span></td>
+      <td>
+        <select onchange="updatePairingResult(${idx}, this.value)">
+          <option value="" ${!pr.result?'selected':''}>—</option>
+          <option value="1-0" ${pr.result==='1-0'?'selected':''}>1 : 0</option>
+          <option value="1/2-1/2" ${pr.result==='1/2-1/2'?'selected':''}>½ : ½</option>
+          <option value="0-1" ${pr.result==='0-1'?'selected':''}>0 : 1</option>
+        </select>
+      </td>
+    </tr>`;
+  }).join('');
+  const isLast = tournament.round === tournament.numRounds;
+  document.getElementById('confirmBtn').textContent = isLast ? t('finishBtn') : t('confirmBtn');
+}
+
+function applyRoundResults(pairings, roundNum){
+  pairings.forEach(pr => {
+    const w = getPlayer(pr.whiteId);
+    if(pr.result === 'bye'){
+      w.score += 1; w.byeUsed = true;
+      w.results.push({ round: roundNum, opp: null, color: 'bye', res: 1 });
+      return;
+    }
+    const b = getPlayer(pr.blackId);
+    w.opponents.push(b.fideid); b.opponents.push(w.fideid);
+    w.colorHistory.push('W'); b.colorHistory.push('B');
+    let wRes, bRes;
+    if(pr.result === '1-0'){ wRes=1; bRes=0; }
+    else if(pr.result === '0-1'){ wRes=0; bRes=1; }
+    else { wRes=0.5; bRes=0.5; }
+    w.score += wRes; b.score += bRes;
+    w.results.push({ round: roundNum, opp: b.fideid, color: 'W', res: wRes });
+    b.results.push({ round: roundNum, opp: w.fideid, color: 'B', res: bRes });
+  });
+}
+
+function confirmRound(){
+  const statusEl = document.getElementById('roundStatus');
+  const missing = tournament.pairings.some(pr => pr.result !== 'bye' && !pr.result);
+  if(missing){ statusEl.textContent = t('fillAllResults'); return; }
+  applyRoundResults(tournament.pairings, tournament.round);
+  tournament.roundsHistory.push({ round: tournament.round, pairings: JSON.parse(JSON.stringify(tournament.pairings)) });
+  statusEl.textContent = '';
+  renderHistoryList();
+  populateStandingsRoundSelect();
+  if(tournament.round < tournament.numRounds){
+    tournament.round += 1;
+    generatePairings();
+    renderRound();
+  } else {
+    tournament.finished = true;
+    document.getElementById('roundCard').classList.add('hidden');
+  }
+  renderStandings();
+  saveState();
+}
+
+/* ---------- Tiebreaks & standings (snapshot-based, works for any round) ---------- */
+function calcBuchholzG(results, scoreOf){ return results.reduce((s,r)=> s + (r.opp ? scoreOf(r.opp) : 0), 0); }
+function calcBuchholzCut1G(results, scoreOf){
+  const scores = results.filter(r=>r.opp).map(r=>scoreOf(r.opp));
+  if(scores.length === 0) return 0;
+  const min = Math.min(...scores);
+  let removed = false;
+  return scores.reduce((s,v)=>{ if(!removed && v===min){ removed=true; return s; } return s+v; }, 0);
+}
+function calcSBG(results, scoreOf){
+  return results.reduce((s,r)=>{
+    if(!r.opp) return s;
+    const os = scoreOf(r.opp);
+    if(r.res === 1) return s + os;
+    if(r.res === 0.5) return s + os/2;
+    return s;
+  }, 0);
+}
+function calcWinsG(results){ return results.filter(r => r.opp && r.res === 1).length; }
+function calcHeadToHeadG(results, tiedIds){ return results.filter(r => r.opp && tiedIds.includes(r.opp)).reduce((s,r)=>s+r.res, 0); }
+
+function maxConfirmedRound(){
+  return tournament.roundsHistory.length ? Math.max(...tournament.roundsHistory.map(r=>r.round)) : 0;
+}
+
+function buildSnapshot(uptoRound){
+  const snap = {};
+  players.forEach(p => { snap[p.fideid] = { fideid: p.fideid, name: p.name, score: 0, results: [], ratingVal: ratingVal(p) }; });
+  tournament.roundsHistory.filter(r => r.round <= uptoRound).forEach(r => {
+    r.pairings.forEach(pr => {
+      const w = snap[pr.whiteId];
+      if(!w) return;
+      if(pr.result === 'bye'){ w.score += 1; w.results.push({ round:r.round, opp:null, color:'bye', res:1 }); return; }
+      const b = snap[pr.blackId];
+      if(!b) return;
+      let wRes, bRes;
+      if(pr.result === '1-0'){ wRes=1; bRes=0; }
+      else if(pr.result === '0-1'){ wRes=0; bRes=1; }
+      else { wRes=0.5; bRes=0.5; }
+      w.score += wRes; b.score += bRes;
+      w.results.push({ round:r.round, opp:pr.blackId, color:'W', res:wRes });
+      b.results.push({ round:r.round, opp:pr.whiteId, color:'B', res:bRes });
+    });
+  });
+  return snap;
+}
+
+function getStandingsFromSnapshot(snap){
+  const list = Object.values(snap).map(p => ({...p, tb:{}}));
+  const groups = {};
+  list.forEach(p => { (groups[p.score] = groups[p.score] || []).push(p); });
+  const scoreOf = id => snap[id] ? snap[id].score : 0;
+  list.forEach(p => {
+    tbOrder.forEach(key => {
+      if(key === 'buchholz') p.tb.buchholz = calcBuchholzG(p.results, scoreOf);
+      if(key === 'buchholzCut1') p.tb.buchholzCut1 = calcBuchholzCut1G(p.results, scoreOf);
+      if(key === 'sb') p.tb.sb = calcSBG(p.results, scoreOf);
+      if(key === 'wins') p.tb.wins = calcWinsG(p.results);
+      if(key === 'headtohead'){
+        const ids = groups[p.score].map(g=>g.fideid).filter(id=>id!==p.fideid);
+        p.tb.headtohead = calcHeadToHeadG(p.results, ids);
+      }
+    });
+  });
+  list.sort((a,b)=>{
+    if(b.score !== a.score) return b.score - a.score;
+    for(const key of tbOrder){
+      const av = a.tb[key] ?? 0, bv = b.tb[key] ?? 0;
+      if(bv !== av) return bv - av;
+    }
+    return b.ratingVal - a.ratingVal;
+  });
+  return list;
+}
+
+function populateStandingsRoundSelect(){
+  const sel = document.getElementById('standingsRoundSelect');
+  const prev = sel.value;
+  const max = maxConfirmedRound();
+  let opts = `<option value="current">${t('currentOption')}</option>`;
+  for(let r = 1; r <= max; r++){ opts += `<option value="${r}">${t('roundChip', r)}</option>`; }
+  sel.innerHTML = opts;
+  sel.value = (prev && [...sel.options].some(o=>o.value===prev)) ? prev : 'current';
+}
+
+function renderStandings(){
+  const sel = document.getElementById('standingsRoundSelect');
+  const selected = sel && sel.value ? sel.value : 'current';
+  let list, titleText;
+  if(selected === 'current'){
+    list = getStandingsFromSnapshot(buildSnapshot(maxConfirmedRound()));
+    titleText = tournament.finished ? t('finalStandingsTitle') : t('standingsTitle');
+  } else {
+    const roundNum = parseInt(selected, 10);
+    list = getStandingsFromSnapshot(buildSnapshot(roundNum));
+    titleText = t('standingsAfterRoundTitle', roundNum);
+  }
+  document.getElementById('standingsTitle').textContent = titleText;
+  const head = document.getElementById('standingsHead');
+  head.innerHTML = `<th>${t('colRank')}</th><th>${t('colName')}</th><th>${t('colPoints')}</th>` +
+    tbOrder.map(k => `<th>${t('tbNames')[k]}</th>`).join('');
+  document.getElementById('standingsBody').innerHTML = list.map((p, idx) => `
+    <tr>
+      <td>${idx+1}</td>
+      <td>${escapeHtml(p.name)}</td>
+      <td><strong>${p.score}</strong></td>
+      ${tbOrder.map(k => `<td>${(p.tb[k] ?? 0).toFixed(1)}</td>`).join('')}
+    </tr>`).join('');
+}
+
+/* ---------- Round history / corrections ---------- */
+function renderHistoryList(){
+  const el = document.getElementById('historyRoundList');
+  el.innerHTML = tournament.roundsHistory.map(r => `
+    <span class="chip" style="cursor:pointer" onclick="openHistoryRound(${r.round})">${t('roundChip', r.round)}</span>
+  `).join('');
+}
+
+function openHistoryRound(roundNum){
+  historyOpenRound = roundNum;
+  historyEditPairings = JSON.parse(JSON.stringify(tournament.roundsHistory.find(r => r.round === roundNum).pairings));
+  renderHistoryEdit();
+}
+
+function updateHistoryResult(idx, val){ historyEditPairings[idx].result = val; }
+
+function renderHistoryEdit(){
+  const area = document.getElementById('historyEditArea');
+  if(historyOpenRound === null){ area.innerHTML = ''; return; }
+  const rows = historyEditPairings.map((pr, idx) => {
+    const w = getPlayer(pr.whiteId);
+    if(pr.result === 'bye'){
+      return `<tr><td>${pr.board}</td><td>${escapeHtml(w.name)} <span class="badge">${t('byeLabelShort')}</span></td><td>—</td><td>—</td></tr>`;
+    }
+    const b = getPlayer(pr.blackId);
+    return `<tr>
+      <td>${pr.board}</td>
+      <td>${escapeHtml(w.name)}</td>
+      <td>${escapeHtml(b.name)}</td>
+      <td>
+        <select onchange="updateHistoryResult(${idx}, this.value)">
+          <option value="1-0" ${pr.result==='1-0'?'selected':''}>1 : 0</option>
+          <option value="1/2-1/2" ${pr.result==='1/2-1/2'?'selected':''}>½ : ½</option>
+          <option value="0-1" ${pr.result==='0-1'?'selected':''}>0 : 1</option>
+        </select>
+      </td>
+    </tr>`;
+  }).join('');
+  area.innerHTML = `
+    <hr class="sep">
+    <h2 style="margin:0 0 8px">${t('roundChip', historyOpenRound)}</h2>
+    <table>
+      <thead><tr>
+        <th>${t('colBoard')}</th><th>${t('colWhite')}</th><th>${t('colBlack')}</th><th>${t('colResult')}</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <p class="sub" style="margin:10px 0 0">${t('correctionWarning')}</p>
+    <div class="field-row" style="margin-top:8px">
+      <button onclick="saveHistoryEdit()">${t('saveCorrection')}</button>
+      <button class="ghost" onclick="closeHistoryEdit()">${t('cancelEdit')}</button>
+    </div>
+  `;
+}
+
+function closeHistoryEdit(){ historyOpenRound = null; historyEditPairings = null; renderHistoryEdit(); }
+
+function resetPlayersTournamentState(){
+  players.forEach(p => { p.score = 0; p.opponents = []; p.colorHistory = []; p.byeUsed = false; p.results = []; });
+}
+
+function saveHistoryEdit(){
+  if(!window.confirm(t('correctionWarning'))) return;
+  const roundNum = historyOpenRound;
+  const idx = tournament.roundsHistory.findIndex(r => r.round === roundNum);
+  tournament.roundsHistory[idx].pairings = historyEditPairings;
+  tournament.roundsHistory = tournament.roundsHistory.slice(0, idx + 1);
+  resetPlayersTournamentState();
+  tournament.roundsHistory.forEach(r => applyRoundResults(r.pairings, r.round));
+  tournament.round = roundNum + 1;
+  tournament.finished = false;
+  historyOpenRound = null; historyEditPairings = null;
+  document.getElementById('roundCard').classList.remove('hidden');
+  if(roundNum < tournament.numRounds){
+    generatePairings();
+  } else {
+    tournament.round = tournament.numRounds;
+    tournament.finished = true;
+    document.getElementById('roundCard').classList.add('hidden');
+  }
+  renderRound();
+  populateStandingsRoundSelect();
+  renderStandings();
+  renderHistoryList();
+  renderHistoryEdit();
+  saveState();
+}
+
+/* ---------- Persistence (localStorage) ---------- */
+const STORAGE_KEY = 'chessTournamentTool_v1';
+function saveState(){
+  try{
+    const data = {
+      players, tournament, tbOrder, lang,
+      tournamentName: document.getElementById('tournamentName').value,
+      numRounds: document.getElementById('numRounds').value,
+      timeControl: document.getElementById('timeControl').value
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  }catch(e){ console.error('Uložení stavu selhalo', e); }
+}
+
+function init(){
+  let data = null;
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(raw) data = JSON.parse(raw);
+  }catch(e){ console.error('Načtení stavu selhalo', e); }
+
+  if(data){
+    players = data.players || [];
+    tournament = Object.assign({ started:false, finished:false, numRounds:0, timeControl:'', round:0, pairings:[], roundsHistory:[] }, data.tournament || {});
+    tbOrder = data.tbOrder || tbOrder;
+    lang = data.lang || 'cs';
+    document.getElementById('tournamentName').value = data.tournamentName || '';
+    if(data.numRounds) document.getElementById('numRounds').value = data.numRounds;
+    if(data.timeControl) document.getElementById('timeControl').value = data.timeControl;
+  }
+
+  document.documentElement.lang = lang;
+  document.getElementById('langToggle').textContent = lang === 'cs' ? 'EN' : 'CS';
+  applyStaticText();
+  renderTbCheckboxes();
+  renderTbChips();
+  render();
+
+  if(tournament.started){
+    document.getElementById('setupCard').classList.add('hidden');
+    document.getElementById('standingsCard').classList.remove('hidden');
+    document.getElementById('historyCard').classList.remove('hidden');
+    if(!tournament.finished){
+      document.getElementById('roundCard').classList.remove('hidden');
+      renderRound();
+    } else {
+      document.getElementById('roundCard').classList.add('hidden');
+    }
+    renderHistoryList();
+    populateStandingsRoundSelect();
+    renderStandings();
+  }
+}
+init();
 </script>
 </body>
 </html>
+
